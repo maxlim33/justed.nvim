@@ -4,8 +4,9 @@
 -- A leader key is used to map customized non-standard actions
 vim.g.mapleader = ' '
 
--- [[ Setting options ]] --
 
+
+-- [[ Setting options ]] --
 -- More colors. True color support.
 vim.opt.termguicolors = true
 
@@ -56,35 +57,55 @@ vim.opt.scrolloff = 5
 -- Minimal number of screen columns to keep left and right the cursor
 vim.opt.sidescrolloff = 5
 
+-- Enable more "natural" autocompletion in :e
+vim.opt.wildmode = 'longest:full,full'
+
+
+
 -- [[ Autocommands ]] --
 -- Autocommands are commands executed when an event like 'TermOpen' below triggered.
+-- ':h events' for a list of all events
 
 -- Create a group to control behaviours of these autocommands easily
 -- In this case, setting `clear = true` clears the outdated ones when reconfiguring new autocommands.
-local justedDefaultsAugroup = vim.api.nvim_create_augroup('justed-defaults', { clear = true })
+local justed_augroup = vim.api.nvim_create_augroup('justed-defaults', { clear = true })
 
 -- Straight into terminal mode to type commands when run :terminal
--- Also disable some sensible options be default, the autocommand is pretty self-explanatory.
+-- Also disable some sensible options by default, the autocommand is pretty self-explanatory.
 vim.api.nvim_create_autocmd('TermOpen', {
   desc = 'Set diff defaults on opening a terminal',
-  group = justedDefaultsAugroup,
-  pattern = '*',
+  group = justed_augroup,
+  -- Match against normal terminal buffers only
+  pattern = 'term://*',
   callback = function()
     vim.opt_local.number = false
     vim.opt_local.relativenumber = false
-    vim.opt_local.cursorline = false
     vim.cmd.startinsert()
   end,
 })
 
--- Straight into terminal mode when switching window or buffer to a :terminal
-vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
-  pattern = '*',
+-- Straight into terminal mode when switching window or buffer to a :terminal window
+vim.api.nvim_create_autocmd({ 'BufEnter' }, {
+  -- Match against normal terminal buffers only
+  pattern = 'term://*',
   desc = 'Set defaults when switching to a terminal window',
-  group = justedDefaultsAugroup,
+  group = justed_augroup,
   callback = function()
     if vim.o.buftype == 'terminal' then
       vim.cmd.startinsert()
+    end
+  end,
+})
+
+vim.api.nvim_create_autocmd({ 'WinEnter', 'WinLeave' }, {
+  pattern = '*',
+  desc = 'Turn on and off cursorline for ease of focus',
+  group = justed_augroup,
+  callback = function(self)
+    if self.event == 'WinEnter' then
+      vim.opt.cursorline = true
+    else
+      vim.opt.cursorline = false
     end
   end,
 })
@@ -100,10 +121,12 @@ vim.keymap.set('n', '<C-H>', '<C-W><C-H>', { desc = 'Move focus to the left wind
 vim.keymap.set('n', '<C-L>', '<C-W><C-L>', { desc = 'Move focus to the right window' })
 vim.keymap.set('n', '<C-J>', '<C-W><C-J>', { desc = 'Move focus to the lower window' })
 vim.keymap.set('n', '<C-K>', '<C-W><C-K>', { desc = 'Move focus to the upper window' })
+vim.keymap.set('n', '<C-Q>', '<C-W><C-Q>', { desc = 'Close window' })
 vim.keymap.set('t', '<C-H>', '<C-\\><C-N><C-W><C-H>', { desc = 'Move focus to the left window from terminal mode' })
 vim.keymap.set('t', '<C-L>', '<C-\\><C-N><C-W><C-L>', { desc = 'Move focus to the right window from terminal mode' })
 vim.keymap.set('t', '<C-J>', '<C-\\><C-N><C-W><C-J>', { desc = 'Move focus to the lower window from terminal mode' })
 vim.keymap.set('t', '<C-K>', '<C-\\><C-N><C-W><C-K>', { desc = 'Move focus to the upper window from terminal mode' })
+vim.keymap.set('t', '<C-Q>', '<C-\\><C-N><C-W><C-Q>', { desc = 'Close terminal window from terminal mode' })
 
 -- Move a line up and down with KJ in visual mode, while respecting indentations.
 vim.keymap.set('v', 'K', ":m '<-2<CR>gv=gv")
@@ -116,10 +139,10 @@ vim.keymap.set('n', '<Esc>', vim.cmd.nohls)
 vim.keymap.set('n', 'n', 'nzzzv')
 vim.keymap.set('n', 'N', 'Nzzzv')
 
--- Allow cursor to stay after yanking (copying), not jumping to first character
+-- Allow cursor to stay after yanking (copying) in visual mode, not jumping to first character
 -- Reference: http://ddrscott.github.io/blog/2016/yank-without-jank/
-vim.keymap.set('v', 'y', function() return 'my"' .. vim.v.register .. 'y`y' end, {expr = true, noremap = true})
-vim.keymap.set('v', 'Y', function() return 'my"' .. vim.v.register .. 'Y`y' end, {expr = true, noremap = true})
+vim.keymap.set('v', 'y', function() return 'my"' .. vim.v.register .. 'y`y' end, { expr = true, noremap = true })
+vim.keymap.set('v', 'Y', function() return 'my"' .. vim.v.register .. 'Y`y' end, { expr = true, noremap = true })
 
 
 
@@ -156,17 +179,29 @@ add('tpope/vim-sleuth')
 add({
   source = 'lifepillar/vim-solarized8', checkout = 'neovim',
 })
-vim.o.background = 'dark' -- or 'light'
+vim.opt.background = 'dark' -- or 'light'
 vim.cmd.colorscheme 'solarized8_flat'
-vim.cmd.highlight('VertSplit guibg=NONE')
+vim.cmd.highlight('WinSeparator guibg=NONE')
 -- uncomment following line if you want transparent background
 -- vim.cmd.highlight('Normal guibg=NONE')
 
 -- Install a statusline theme
 -- A minimalistic look for lualine.nvim
+-- vim.api.nvim_set_hl(0, 'WinBar', {link = 'NormalFloat'})
+-- vim.o.winbar = '%=%m %t '
 add('nvim-lualine/lualine.nvim')
 require('lualine').setup({
-  options = { section_separators = '', component_separators = '', icons_enabled = false },
+  options = {
+    section_separators = '',
+    component_separators = '',
+    icons_enabled = false,
+    -- Set true if only one global status line at bottom is desired
+    -- Also can be set independently with :set laststatus=3, see :h laststatus
+    globalstatus = true,
+  },
+  sections = {
+    lualine_c = {{'filename', path = 3}},
+  },
 })
 
 -- Uncomment following lines if you want the default lualine looks
@@ -182,11 +217,11 @@ require('lualine').setup({
 -- })
 
 -- Install key bindings helper
-add('folke/which-key.nvim')
-require('which-key').setup()
-require('which-key').register({
-  ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
-})
+-- add('folke/which-key.nvim')
+-- require('which-key').setup()
+-- require('which-key').register({
+--   ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
+-- })
 
 -- Install fuzzy finder
 add({
